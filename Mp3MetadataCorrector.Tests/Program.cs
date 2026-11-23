@@ -1,3 +1,24 @@
+// Author:
+// Bhushan Kamble
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to
+// permit persons to whom the Software is furnished to do so, subject to
+// the following conditions:
+// 
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 using System;
 using System.IO;
 using System.Text;
@@ -6,8 +27,15 @@ using Mp3MetadataCorrector.Services;
 
 namespace Mp3MetadataCorrector.Tests;
 
+/// <summary>
+/// Console test runner verifying file name parsing and ID3v2/ID3v1 metadata reading and writing.
+/// </summary>
 public class Program
 {
+    /// <summary>
+    /// Executes the unit and integration verification test suites.
+    /// </summary>
+    /// <returns>Exit code 0 on all tests passing; otherwise 1.</returns>
     public static int Main()
     {
         Console.WriteLine("=== RUNNING MP3 METADATA CORRECTOR VERIFICATION TESTS ===");
@@ -113,6 +141,10 @@ public class Program
         return failures == 0 ? 0 : 1;
     }
 
+    /// <summary>
+    /// Generates a valid synthetic MP3 binary file containing MPEG audio frames for testing.
+    /// </summary>
+    /// <param name="path">Target file destination.</param>
     private static void CreateSyntheticMp3File(string path)
     {
         using var fs = new FileStream(path, FileMode.Create, FileAccess.Write);

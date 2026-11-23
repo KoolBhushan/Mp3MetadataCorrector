@@ -1,3 +1,24 @@
+// Author:
+// Bhushan Kamble
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to
+// permit persons to whom the Software is furnished to do so, subject to
+// the following conditions:
+// 
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 using System;
 using System.Diagnostics;
 using System.Drawing;
@@ -10,8 +31,15 @@ using Microsoft.Win32;
 
 namespace Mp3MetadataCorrector.Installer;
 
+/// <summary>
+/// Entry point for the Windows Forms setup installer and uninstaller application.
+/// </summary>
 public static class Program
 {
+    /// <summary>
+    /// The main entry point for the installer application.
+    /// </summary>
+    /// <param name="args">Command line arguments passed to the installer (supports /UNINSTALL or /U).</param>
     [STAThread]
     public static void Main(string[] args)
     {
@@ -33,6 +61,9 @@ public static class Program
         Application.Run(new SetupForm());
     }
 
+    /// <summary>
+    /// Executes the uninstallation workflow removing shortcuts, registry entries, and program binaries.
+    /// </summary>
     private static void RunUninstaller()
     {
         string defaultPath = Path.Combine(
@@ -85,6 +116,9 @@ public static class Program
     }
 }
 
+/// <summary>
+/// Graphical installation wizard providing folder selection, shortcut configuration, and extraction progress.
+/// </summary>
 public class SetupForm : Form
 {
     private TextBox _txtPath = null!;
@@ -97,6 +131,9 @@ public class SetupForm : Form
     private Button _btnCancel = null!;
     private Button _btnBrowse = null!;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SetupForm"/> class.
+    /// </summary>
     public SetupForm()
     {
         InitializeComponents();

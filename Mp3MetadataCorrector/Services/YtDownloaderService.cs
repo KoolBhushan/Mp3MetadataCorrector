@@ -1,3 +1,24 @@
+// Author:
+// Bhushan Kamble
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to
+// permit persons to whom the Software is furnished to do so, subject to
+// the following conditions:
+// 
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -9,6 +30,9 @@ using Mp3MetadataCorrector.Models;
 
 namespace Mp3MetadataCorrector.Services;
 
+/// <summary>
+/// Service responsible for orchestrating yt-dlp binary management and audio downloading/conversion to MP3 using ffmpeg.
+/// </summary>
 public class YtDownloaderService
 {
     private static readonly Regex ProgressRegex = new(
@@ -21,11 +45,19 @@ public class YtDownloaderService
 
     private readonly HttpClient _httpClient;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="YtDownloaderService"/> class.
+    /// </summary>
+    /// <param name="httpClient">Optional <see cref="HttpClient"/> instance to use for downloads.</param>
     public YtDownloaderService(HttpClient? httpClient = null)
     {
         _httpClient = httpClient ?? new HttpClient();
     }
 
+    /// <summary>
+    /// Gets the path to the internal tools directory where yt-dlp and ffmpeg binaries are located or downloaded.
+    /// </summary>
+    /// <returns>The absolute path of the tools directory.</returns>
     public string GetToolsDirectory()
     {
         string baseDir = AppContext.BaseDirectory;
@@ -42,6 +74,10 @@ public class YtDownloaderService
         return toolsDir;
     }
 
+    /// <summary>
+    /// Locates the yt-dlp executable by checking the application's tools directory, project root, and system PATH.
+    /// </summary>
+    /// <returns>The path to yt-dlp.exe if found, or null otherwise.</returns>
     public string? FindYtDlpPath()
     {
         string toolsDir = GetToolsDirectory();
@@ -66,6 +102,10 @@ public class YtDownloaderService
         return null;
     }
 
+    /// <summary>
+    /// Locates the ffmpeg executable by checking the application's tools directory, Navidrome server installation, and system PATH.
+    /// </summary>
+    /// <returns>The path to ffmpeg.exe if found, or null otherwise.</returns>
     public string? FindFfmpegPath()
     {
         string toolsDir = GetToolsDirectory();
@@ -94,9 +134,22 @@ public class YtDownloaderService
         return null;
     }
 
+    /// <summary>
+    /// Gets a value indicating whether yt-dlp is available on the system.
+    /// </summary>
     public bool IsYtDlpAvailable => !string.IsNullOrEmpty(FindYtDlpPath());
+
+    /// <summary>
+    /// Gets a value indicating whether ffmpeg is available on the system.
+    /// </summary>
     public bool IsFfmpegAvailable => !string.IsNullOrEmpty(FindFfmpegPath());
 
+    /// <summary>
+    /// Downloads or updates the latest release of yt-dlp from its official GitHub repository into the application's tools folder.
+    /// </summary>
+    /// <param name="progress">Progress reporter for percentage downloaded.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The file path to the installed yt-dlp executable.</returns>
     public async Task<string> InstallOrUpdateYtDlpAsync(IProgress<double>? progress = null, CancellationToken ct = default)
     {
         string toolsDir = GetToolsDirectory();
@@ -144,6 +197,16 @@ public class YtDownloaderService
         }
     }
 
+    /// <summary>
+    /// Downloads audio from the specified online URL and converts it to high-quality MP3 format.
+    /// </summary>
+    /// <param name="url">The URL of the media/audio to extract.</param>
+    /// <param name="targetDirectory">The directory where the resulting MP3 will be saved.</param>
+    /// <param name="progress">Progress reporter for tracking download percentage, speed, and status messages.</param>
+    /// <param name="ct">Cancellation token for aborting the operation.</param>
+    /// <returns>The path to the downloaded and converted MP3 file.</returns>
+    /// <exception cref="FileNotFoundException">Thrown when yt-dlp or the resulting MP3 file cannot be found.</exception>
+    /// <exception cref="Exception">Thrown when the external yt-dlp process fails.</exception>
     public async Task<string> DownloadAudioAsMp3Async(
         string url,
         string targetDirectory,

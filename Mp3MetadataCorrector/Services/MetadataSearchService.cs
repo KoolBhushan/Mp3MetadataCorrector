@@ -1,3 +1,24 @@
+// Author:
+// Bhushan Kamble
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to
+// permit persons to whom the Software is furnished to do so, subject to
+// the following conditions:
+// 
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,10 +30,17 @@ using Mp3MetadataCorrector.Models;
 
 namespace Mp3MetadataCorrector.Services;
 
+/// <summary>
+/// Service responsible for querying online metadata providers (iTunes Search API and MusicBrainz) and downloading high-resolution album artwork.
+/// </summary>
 public class MetadataSearchService
 {
     private readonly HttpClient _httpClient;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MetadataSearchService"/> class.
+    /// </summary>
+    /// <param name="httpClient">Optional custom <see cref="HttpClient"/> instance.</param>
     public MetadataSearchService(HttpClient? httpClient = null)
     {
         _httpClient = httpClient ?? new HttpClient();
@@ -23,6 +51,13 @@ public class MetadataSearchService
         _httpClient.Timeout = TimeSpan.FromSeconds(15);
     }
 
+    /// <summary>
+    /// Searches online music databases for track metadata matching the specified search query.
+    /// </summary>
+    /// <param name="query">The search keywords (song title, artist, or album).</param>
+    /// <param name="provider">The provider to query ("All", "iTunes", or "MusicBrainz").</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A list of matching <see cref="SearchResult"/> records.</returns>
     public async Task<List<SearchResult>> SearchAsync(string query, string provider = "All", CancellationToken ct = default)
     {
         var results = new List<SearchResult>();
@@ -60,6 +95,9 @@ public class MetadataSearchService
         return results;
     }
 
+    /// <summary>
+    /// Queries the iTunes Search API for song records matching the query string.
+    /// </summary>
     private async Task<List<SearchResult>> SearchITunesAsync(string escapedQuery, CancellationToken ct)
     {
         var list = new List<SearchResult>();
@@ -145,6 +183,9 @@ public class MetadataSearchService
         return list;
     }
 
+    /// <summary>
+    /// Queries the MusicBrainz web service API for recording records matching the query string.
+    /// </summary>
     private async Task<List<SearchResult>> SearchMusicBrainzAsync(string escapedQuery, CancellationToken ct)
     {
         var list = new List<SearchResult>();
@@ -255,6 +296,12 @@ public class MetadataSearchService
         return list;
     }
 
+    /// <summary>
+    /// Downloads image binary data from the specified artwork URL.
+    /// </summary>
+    /// <param name="url">The image URL.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A tuple containing the raw image byte array and its detected MIME type, or null if download fails.</returns>
     public async Task<(byte[] Data, string MimeType)?> DownloadArtworkAsync(string? url, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(url))

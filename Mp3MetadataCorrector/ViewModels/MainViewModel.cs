@@ -1,3 +1,24 @@
+// Author:
+// Bhushan Kamble
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to
+// permit persons to whom the Software is furnished to do so, subject to
+// the following conditions:
+// 
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -14,6 +35,10 @@ using Mp3MetadataCorrector.Services;
 
 namespace Mp3MetadataCorrector.ViewModels;
 
+/// <summary>
+/// Primary ViewModel for the application coordinating file selection, tag reading/writing,
+/// online metadata search queries, and audio downloading via yt-dlp.
+/// </summary>
 public partial class MainViewModel : ObservableObject
 {
     private readonly Mp3TagService _tagService;
@@ -22,127 +47,260 @@ public partial class MainViewModel : ObservableObject
     private CancellationTokenSource? _searchCts;
     private CancellationTokenSource? _downloadCts;
 
+    /// <summary>
+    /// Gets the collection of loaded MP3 files.
+    /// </summary>
     public ObservableCollection<TrackMetadata> Files { get; } = [];
+
+    /// <summary>
+    /// Gets the collection of search results returned from online metadata queries.
+    /// </summary>
     public ObservableCollection<SearchResult> SearchResults { get; } = [];
 
+    /// <summary>
+    /// The currently selected MP3 file in the library list.
+    /// </summary>
     [ObservableProperty]
     public partial TrackMetadata? SelectedFile { get; set; }
 
+    /// <summary>
+    /// The currently selected search result item in the search results list.
+    /// </summary>
     [ObservableProperty]
     public partial SearchResult? SelectedSearchResult { get; set; }
 
+    /// <summary>
+    /// The search query text entered by the user or auto-formulated from file analysis.
+    /// </summary>
     [ObservableProperty]
     public partial string SearchQuery { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The selected metadata provider filter ("All", "iTunes", or "MusicBrainz").
+    /// </summary>
     [ObservableProperty]
     public partial string SelectedProvider { get; set; } = "All";
 
+    /// <summary>
+    /// Gets the list of available metadata search providers.
+    /// </summary>
     public List<string> AvailableProviders { get; } = ["All", "iTunes", "MusicBrainz"];
 
     // Editable candidate metadata
+
+    /// <summary>
+    /// The edited track title to be saved.
+    /// </summary>
     [ObservableProperty]
     public partial string EditTitle { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The edited artist name to be saved.
+    /// </summary>
     [ObservableProperty]
     public partial string EditArtist { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The edited album name to be saved.
+    /// </summary>
     [ObservableProperty]
     public partial string EditAlbum { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The edited album artist name to be saved.
+    /// </summary>
     [ObservableProperty]
     public partial string EditAlbumArtist { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The edited release year string to be saved.
+    /// </summary>
     [ObservableProperty]
     public partial string EditYear { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The edited music genre to be saved.
+    /// </summary>
     [ObservableProperty]
     public partial string EditGenre { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The edited track index number string to be saved.
+    /// </summary>
     [ObservableProperty]
     public partial string EditTrackNumber { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The edited total track count string to be saved.
+    /// </summary>
     [ObservableProperty]
     public partial string EditTrackTotal { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The edited disc number string to be saved.
+    /// </summary>
     [ObservableProperty]
     public partial string EditDiscNumber { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The edited unsynchronized song lyrics to be saved.
+    /// </summary>
     [ObservableProperty]
     public partial string EditLyrics { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The edited user comment string to be saved.
+    /// </summary>
     [ObservableProperty]
     public partial string EditComment { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Raw byte array of the new cover artwork to be written to the file.
+    /// </summary>
     [ObservableProperty]
     public partial byte[]? EditCoverArtBytes { get; set; }
 
+    /// <summary>
+    /// MIME type of the cover artwork (e.g., image/jpeg or image/png).
+    /// </summary>
     [ObservableProperty]
     public partial string? EditCoverArtMimeType { get; set; }
 
+    /// <summary>
+    /// XAML BitmapImage representing the current cover artwork of the selected file.
+    /// </summary>
     [ObservableProperty]
     public partial BitmapImage? CurrentCoverArtBitmap { get; set; }
 
+    /// <summary>
+    /// XAML BitmapImage representing the candidate/edited cover artwork.
+    /// </summary>
     [ObservableProperty]
     public partial BitmapImage? EditCoverArtBitmap { get; set; }
 
+    /// <summary>
+    /// Indicates whether a metadata search query is currently executing.
+    /// </summary>
     [ObservableProperty]
     public partial bool IsSearching { get; set; }
 
+    /// <summary>
+    /// Indicates whether metadata is currently being saved to disk.
+    /// </summary>
     [ObservableProperty]
     public partial bool IsSaving { get; set; }
 
+    /// <summary>
+    /// Indicates whether audio files are currently being loaded and parsed.
+    /// </summary>
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
+    /// <summary>
+    /// Text message displayed in the application's status InfoBar notification.
+    /// </summary>
     [ObservableProperty]
     public partial string StatusMessage { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Severity level of the application's status InfoBar notification.
+    /// </summary>
     [ObservableProperty]
     public partial InfoBarSeverity StatusSeverity { get; set; } = InfoBarSeverity.Informational;
 
+    /// <summary>
+    /// Controls whether the status InfoBar notification is open/visible.
+    /// </summary>
     [ObservableProperty]
     public partial bool IsStatusOpen { get; set; }
 
+    /// <summary>
+    /// Indicates whether the physical file should be automatically renamed to "Artist - Title.mp3" when saved.
+    /// </summary>
     [ObservableProperty]
     public partial bool RenameFileOnSave { get; set; } = false;
 
     // YT-DLG / Downloader properties
+
+    /// <summary>
+    /// Indicates whether the built-in media downloader panel is expanded and visible.
+    /// </summary>
     [ObservableProperty]
     public partial bool IsDownloaderVisible { get; set; } = false;
 
+    /// <summary>
+    /// Media URL to download from (e.g., YouTube, SoundCloud).
+    /// </summary>
     [ObservableProperty]
     public partial string DownloadUrl { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Destination folder path where downloaded MP3 files will be stored.
+    /// </summary>
     [ObservableProperty]
     public partial string DownloadFolder { get; set; } = @"D:\Music";
 
+    /// <summary>
+    /// Indicates whether a media download and conversion is currently active.
+    /// </summary>
     [ObservableProperty]
     public partial bool IsDownloading { get; set; } = false;
 
+    /// <summary>
+    /// Numerical progress (0-100) of the active media download.
+    /// </summary>
     [ObservableProperty]
     public partial double DownloadProgressValue { get; set; } = 0;
 
+    /// <summary>
+    /// Status text showing real-time speed, ETA, or conversion progress of the downloader.
+    /// </summary>
     [ObservableProperty]
     public partial string DownloadStatusText { get; set; } = "Enter a YouTube / SoundCloud / music video URL";
 
+    /// <summary>
+    /// Indicates whether yt-dlp is currently being downloaded or updated from GitHub.
+    /// </summary>
     [ObservableProperty]
     public partial bool IsInstallingYtDlp { get; set; } = false;
 
+    /// <summary>
+    /// Status description of the yt-dlp executable availability.
+    /// </summary>
     [ObservableProperty]
     public partial string YtDlpStatusText { get; set; } = "yt-dlp: Checking...";
 
+    /// <summary>
+    /// Status description of the ffmpeg executable availability.
+    /// </summary>
     [ObservableProperty]
     public partial string FfmpegStatusText { get; set; } = "ffmpeg: Checking...";
 
+    /// <summary>
+    /// Indicates whether yt-dlp is present and ready for execution.
+    /// </summary>
     [ObservableProperty]
     public partial bool IsYtDlpReady { get; set; } = false;
 
+    /// <summary>
+    /// Indicates whether ffmpeg is present and ready for audio conversion.
+    /// </summary>
     [ObservableProperty]
     public partial bool IsFfmpegReady { get; set; } = false;
 
+    /// <summary>
+    /// Gets a value indicating whether a file is currently selected.
+    /// </summary>
     public bool HasSelectedFile => SelectedFile != null;
+
+    /// <summary>
+    /// Gets a value indicating whether online search results are currently available.
+    /// </summary>
     public bool HasSearchResults => SearchResults.Count > 0;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MainViewModel"/> class.
+    /// </summary>
     public MainViewModel()
     {
         _tagService = new Mp3TagService();
@@ -158,6 +316,9 @@ public partial class MainViewModel : ObservableObject
         RefreshEngineStatus();
     }
 
+    /// <summary>
+    /// Refreshes the detection status of yt-dlp and ffmpeg binaries.
+    /// </summary>
     public void RefreshEngineStatus()
     {
         IsYtDlpReady = _downloaderService.IsYtDlpAvailable;
@@ -167,6 +328,9 @@ public partial class MainViewModel : ObservableObject
         FfmpegStatusText = IsFfmpegReady ? "ffmpeg: Ready" : "ffmpeg: Not found";
     }
 
+    /// <summary>
+    /// Toggles the visibility of the media downloader panel.
+    /// </summary>
     [RelayCommand]
     public void ToggleDownloader()
     {
@@ -177,6 +341,10 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Downloads and installs or updates the latest yt-dlp executable.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     [RelayCommand]
     public async Task InstallYtDlpAsync()
     {
@@ -206,6 +374,10 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Downloads audio from the specified URL and automatically imports the resulting MP3 into the editor.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     [RelayCommand]
     public async Task DownloadMp3Async()
     {
@@ -265,6 +437,10 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Handles updates when a new track is selected in the file list.
+    /// </summary>
+    /// <param name="value">The selected <see cref="TrackMetadata"/> instance.</param>
     partial void OnSelectedFileChanged(TrackMetadata? value)
     {
         OnPropertyChanged(nameof(HasSelectedFile));
@@ -318,6 +494,9 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Clears all editable form fields and cover images.
+    /// </summary>
     private void ResetEditFields()
     {
         EditTitle = string.Empty;
@@ -339,6 +518,11 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(HasSearchResults));
     }
 
+    /// <summary>
+    /// Loads a single MP3 file into the collection and selects it.
+    /// </summary>
+    /// <param name="filePath">Absolute path of the MP3 file.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public async Task AddFileAsync(string filePath)
     {
         if (!File.Exists(filePath) || !filePath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase))
@@ -372,6 +556,11 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Loads multiple MP3 files into the collection.
+    /// </summary>
+    /// <param name="filePaths">Collection of MP3 file paths.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public async Task AddFilesAsync(IEnumerable<string> filePaths)
     {
         IsLoading = true;
@@ -418,6 +607,10 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Executes an online search query across configured providers using the current search term.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     [RelayCommand]
     public async Task SearchAsync()
     {
@@ -466,6 +659,11 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Applies metadata and fetches high-resolution cover art from the chosen search result.
+    /// </summary>
+    /// <param name="result">The selected search result.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     [RelayCommand]
     public async Task ApplySearchResultAsync(SearchResult? result)
     {
@@ -500,6 +698,10 @@ public partial class MainViewModel : ObservableObject
         ShowStatusNotification($"Applied metadata from {result.Source}.", InfoBarSeverity.Success);
     }
 
+    /// <summary>
+    /// Writes the edited metadata tags and cover artwork to the selected MP3 file.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     [RelayCommand]
     public async Task SaveMetadataAsync()
     {
@@ -562,6 +764,9 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Removes the cover artwork from the current edit buffer.
+    /// </summary>
     [RelayCommand]
     public void RemoveCoverArt()
     {
@@ -571,6 +776,12 @@ public partial class MainViewModel : ObservableObject
         ShowStatusNotification("Cover art removed. Click 'Save & Update MP3' to apply.", InfoBarSeverity.Informational);
     }
 
+    /// <summary>
+    /// Sets custom cover art from an image file picked by the user.
+    /// </summary>
+    /// <param name="imageBytes">Raw image bytes.</param>
+    /// <param name="mimeType">MIME type of the image.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     public async Task SetCustomCoverArtAsync(byte[] imageBytes, string mimeType)
     {
         EditCoverArtBytes = imageBytes;

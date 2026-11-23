@@ -1,3 +1,24 @@
+// Author:
+// Bhushan Kamble
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to
+// permit persons to whom the Software is furnished to do so, subject to
+// the following conditions:
+// 
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -15,10 +36,19 @@ using WinRT.Interop;
 
 namespace Mp3MetadataCorrector;
 
+/// <summary>
+/// Main application window providing the user interface for MP3 metadata correction and downloading.
+/// </summary>
 public sealed partial class MainWindow : Window
 {
+    /// <summary>
+    /// Gets the primary ViewModel instance managing the UI state and operations.
+    /// </summary>
     public MainViewModel ViewModel { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MainWindow"/> class.
+    /// </summary>
     public MainWindow()
     {
         ViewModel = new MainViewModel();
@@ -27,6 +57,9 @@ public sealed partial class MainWindow : Window
         ConfigureWindow();
     }
 
+    /// <summary>
+    /// Configures the window dimensions, title, and initial center screen placement.
+    /// </summary>
     private void ConfigureWindow()
     {
         Title = "MP3 Metadata Corrector";
@@ -50,11 +83,17 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Handles clicking the Download MP3 button to toggle the downloader panel.
+    /// </summary>
     private void OnToggleDownloaderClick(object sender, RoutedEventArgs e)
     {
         ViewModel.ToggleDownloader();
     }
 
+    /// <summary>
+    /// Triggers download execution when the Enter key is pressed in the URL input box.
+    /// </summary>
     private async void OnDownloadUrlKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == Windows.System.VirtualKey.Enter)
@@ -63,6 +102,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Displays a folder picker dialog to select the destination folder for downloaded MP3s.
+    /// </summary>
     private async void OnPickDownloadFolderClick(object sender, RoutedEventArgs e)
     {
         try
@@ -86,6 +128,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Displays a file picker dialog allowing the user to select one or more MP3 files.
+    /// </summary>
     private async void OnOpenFileClick(object sender, RoutedEventArgs e)
     {
         try
@@ -115,6 +160,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Displays a folder picker dialog to scan and import all MP3 files within a chosen folder.
+    /// </summary>
     private async void OnOpenFolderClick(object sender, RoutedEventArgs e)
     {
         try
@@ -146,12 +194,18 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Clears the currently loaded file queue.
+    /// </summary>
     private void OnClearListClick(object sender, RoutedEventArgs e)
     {
         ViewModel.Files.Clear();
         ViewModel.SelectedFile = null;
     }
 
+    /// <summary>
+    /// Displays an image file picker to select custom artwork to embed in the MP3.
+    /// </summary>
     private async void OnChangeCoverArtClick(object sender, RoutedEventArgs e)
     {
         try
@@ -184,11 +238,17 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Removes the current candidate cover artwork.
+    /// </summary>
     private void OnRemoveCoverArtClick(object sender, RoutedEventArgs e)
     {
         ViewModel.RemoveCoverArt();
     }
 
+    /// <summary>
+    /// Applies the selected online search match to the editable metadata fields.
+    /// </summary>
     private async void OnApplyResultClick(object sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: SearchResult result })
@@ -197,6 +257,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Initiates online metadata search when Enter is pressed in the search textbox.
+    /// </summary>
     private async void OnSearchBoxKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == Windows.System.VirtualKey.Enter)
@@ -205,6 +268,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Handles drag over event to indicate copy acceptance for dropped files.
+    /// </summary>
     private void OnGridDragOver(object sender, DragEventArgs e)
     {
         e.AcceptedOperation = DataPackageOperation.Copy;
@@ -212,6 +278,9 @@ public sealed partial class MainWindow : Window
         e.DragUIOverride.IsContentVisible = true;
     }
 
+    /// <summary>
+    /// Handles dropping MP3 files or folders onto the window to automatically add them to the queue.
+    /// </summary>
     private async void OnGridDrop(object sender, DragEventArgs e)
     {
         if (e.DataView.Contains(StandardDataFormats.StorageItems))

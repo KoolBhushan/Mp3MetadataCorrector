@@ -1,9 +1,33 @@
+// Author:
+// Bhushan Kamble
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to
+// permit persons to whom the Software is furnished to do so, subject to
+// the following conditions:
+// 
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 using System;
 using System.IO;
 using System.Text.RegularExpressions;
 
 namespace Mp3MetadataCorrector.Services;
 
+/// <summary>
+/// Provides heuristic parsing and sanitization routines to extract artist, title, and search queries from noisy audio filenames.
+/// </summary>
 public static class FileNameParser
 {
     private static readonly Regex TrackNumberPrefixRegex = new(
@@ -22,6 +46,11 @@ public static class FileNameParser
         @"(?i)(www\.[a-z0-9\-]+\.[a-z]+|\[[a-z0-9\-]+\.[a-z]+\])",
         RegexOptions.Compiled);
 
+    /// <summary>
+    /// Parses a filename or file path, stripping common prefixes, suffixes, and noise tags to extract the artist, title, and clean query.
+    /// </summary>
+    /// <param name="filePathOrName">The raw file path or file name.</param>
+    /// <returns>A tuple containing the extracted Artist, Title, and CleanQuery strings.</returns>
     public static (string Artist, string Title, string CleanQuery) Parse(string filePathOrName)
     {
         string raw = Path.GetFileNameWithoutExtension(filePathOrName);

@@ -1,3 +1,24 @@
+// Author:
+// Bhushan Kamble
+// Permission is hereby granted, free of charge, to any person obtaining
+// a copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to
+// permit persons to whom the Software is furnished to do so, subject to
+// the following conditions:
+// 
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+// NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+// LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+// OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+// WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,10 +27,18 @@ using Mp3MetadataCorrector.Models;
 
 namespace Mp3MetadataCorrector.Services;
 
+/// <summary>
+/// Service responsible for reading and writing ID3v2.3, ID3v2.4, and ID3v1 metadata tags, embedded APIC artwork, and MPEG audio header properties.
+/// </summary>
 public class Mp3TagService
 {
     private static readonly Encoding Latin1 = Encoding.GetEncoding("ISO-8859-1");
 
+    /// <summary>
+    /// Reads ID3 metadata tags, embedded front cover art, and audio encoding specs from an MP3 file.
+    /// </summary>
+    /// <param name="filePath">The absolute path to the MP3 file.</param>
+    /// <returns>A populated <see cref="TrackMetadata"/> instance.</returns>
     public TrackMetadata ReadMetadata(string filePath)
     {
         var meta = new TrackMetadata
@@ -51,6 +80,9 @@ public class Mp3TagService
         return meta;
     }
 
+    /// <summary>
+    /// Reads and decodes ID3v2.2, ID3v2.3, and ID3v2.4 headers and frames.
+    /// </summary>
     private static bool ReadId3v2(BinaryReader reader, TrackMetadata meta, out long totalHeaderSize)
     {
         totalHeaderSize = 0;
@@ -113,6 +145,9 @@ public class Mp3TagService
         return true;
     }
 
+    /// <summary>
+    /// Parses an individual ID3 frame according to its 4-character identifier.
+    /// </summary>
     private static void ParseFrame(string frameId, byte[] payload, TrackMetadata meta)
     {
         if (payload.Length == 0) return;
@@ -164,6 +199,9 @@ public class Mp3TagService
         }
     }
 
+    /// <summary>
+    /// Parses an APIC attached picture frame to extract cover artwork binary data.
+    /// </summary>
     private static void ParseApicFrame(byte[] payload, TrackMetadata meta)
     {
         if (payload.Length < 4) return;
@@ -195,6 +233,9 @@ public class Mp3TagService
         }
     }
 
+    /// <summary>
+    /// Skips null-terminators based on text encoding.
+    /// </summary>
     private static int SkipNullTerminator(byte[] data, int start, byte encoding)
     {
         if (encoding == 1 || encoding == 2) // UTF-16
@@ -216,6 +257,9 @@ public class Mp3TagService
         return data.Length;
     }
 
+    /// <summary>
+    /// Decodes raw text frame payload bytes respecting encoding prefixes and trimming BOM characters.
+    /// </summary>
     private static string DecodeTextFrame(byte[] payload)
     {
         if (payload.Length < 1) return string.Empty;
@@ -235,6 +279,9 @@ public class Mp3TagService
         return text.Trim('\0', ' ', '\r', '\n', '\uFEFF');
     }
 
+    /// <summary>
+    /// Decodes COMM or USLT frame payloads containing language codes and descriptions.
+    /// </summary>
     private static string DecodeCommentOrLyrics(byte[] payload)
     {
         if (payload.Length < 5) return string.Empty;
@@ -255,6 +302,9 @@ public class Mp3TagService
         return enc.GetString(payload, idx, payload.Length - idx).Trim('\0', ' ', '\r', '\n', '\uFEFF');
     }
 
+    /// <summary>
+    /// Parses track number strings in formats like "4" or "4/12".
+    /// </summary>
     private static void ParseTrackNumber(string str, out uint? num, out uint? total)
     {
         num = null;
@@ -273,10 +323,12 @@ public class Mp3TagService
         }
     }
 
+    /// <summary>
+    /// Cleans ID3v1 numeric genre notations like "(17)Rock".
+    /// </summary>
     private static string CleanGenre(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
-        // Check for numeric ID3v1 genre notation like "(17)" or "(17)Rock"
         if (raw.StartsWith('(') && raw.Contains(')'))
         {
             int close = raw.IndexOf(')');
@@ -290,6 +342,9 @@ public class Mp3TagService
         return raw;
     }
 
+    /// <summary>
+    /// Reads legacy ID3v1 tags from the last 128 bytes of an MP3 file.
+    /// </summary>
     private static void ReadId3v1(BinaryReader reader, TrackMetadata meta)
     {
         if (reader.BaseStream.Length < 128) return;
@@ -327,6 +382,9 @@ public class Mp3TagService
         }
     }
 
+    /// <summary>
+    /// Parses MPEG-1 Layer 3 frame sync headers to calculate bitrate, sample rate, channels, and duration.
+    /// </summary>
     private static void ParseAudioProperties(BinaryReader reader, TrackMetadata meta, long id3v2Size)
     {
         try
@@ -344,7 +402,6 @@ public class Mp3TagService
                     int syncByte2 = reader.ReadByte();
                     if ((syncByte2 & 0xE0) == 0xE0) // 11 sync bits
                     {
-                        // Found MPEG frame header
                         int mpegVer = (syncByte2 >> 3) & 0x03; // 3 = MPEG1, 2 = MPEG2, 0 = MPEG2.5
                         int layer = (syncByte2 >> 1) & 0x03;   // 1 = Layer III (MP3)
 
@@ -355,7 +412,7 @@ public class Mp3TagService
 
                             int bitrateIdx = (byte3 >> 4) & 0x0F;
                             int sampleRateIdx = (byte3 >> 2) & 0x03;
-                            int channelMode = (byte4 >> 6) & 0x03; // 3 = Single channel, else stereo
+                            int channelMode = (byte4 >> 6) & 0x03;
 
                             int bitrate = GetMpeg1Layer3Bitrate(bitrateIdx);
                             int sampleRate = GetMpeg1SampleRate(sampleRateIdx);
@@ -365,7 +422,6 @@ public class Mp3TagService
                             meta.SampleRateHz = sampleRate;
                             meta.Channels = channels;
 
-                            // Calculate approximate duration
                             long audioBytes = fileLength - id3v2Size - (fileLength >= 128 ? 128 : 0);
                             if (bitrate > 0 && audioBytes > 0)
                             {
@@ -384,6 +440,11 @@ public class Mp3TagService
         }
     }
 
+    /// <summary>
+    /// Safely updates an MP3 file with new ID3v2.3 tags, APIC artwork, and ID3v1 fallback, preserving audio bitstream.
+    /// </summary>
+    /// <param name="meta">The metadata values to write.</param>
+    /// <param name="newFilePath">Optional new target file path if renaming.</param>
     public void WriteMetadata(TrackMetadata meta, string? newFilePath = null)
     {
         string targetPath = string.IsNullOrEmpty(newFilePath) ? meta.FilePath : newFilePath;
@@ -466,6 +527,9 @@ public class Mp3TagService
         }
     }
 
+    /// <summary>
+    /// Builds an ID3v2.3 byte array with UTF-16 BOM text frames and APIC artwork frame.
+    /// </summary>
     private static byte[] BuildId3v2Tag(TrackMetadata meta)
     {
         using var ms = new MemoryStream();
@@ -500,7 +564,6 @@ public class Mp3TagService
         }
 
         byte[] frameData = ms.ToArray();
-        // Add 2048 bytes of padding for future quick edits
         int paddingSize = 2048;
         int totalTagDataSize = frameData.Length + paddingSize;
 
@@ -516,15 +579,16 @@ public class Mp3TagService
         byte[] fullTag = new byte[10 + totalTagDataSize];
         Array.Copy(header, 0, fullTag, 0, 10);
         Array.Copy(frameData, 0, fullTag, 10, frameData.Length);
-        // padding bytes remain 0
         return fullTag;
     }
 
+    /// <summary>
+    /// Writes a UTF-16 encoded text frame with BOM.
+    /// </summary>
     private static void WriteTextFrame(Stream stream, string frameId, string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
 
-        // Use UTF-16 with BOM for universal Windows/macOS/Linux player support
         byte[] textBytes = Encoding.Unicode.GetBytes(text);
         byte[] payload = new byte[1 + 2 + textBytes.Length];
         payload[0] = 1; // UTF-16 with BOM
@@ -535,18 +599,20 @@ public class Mp3TagService
         WriteFrame(stream, frameId, payload);
     }
 
+    /// <summary>
+    /// Writes a comment (COMM) or lyrics (USLT) frame.
+    /// </summary>
     private static void WriteCommentFrame(Stream stream, string frameId, string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
 
         byte[] textBytes = Encoding.Unicode.GetBytes(text);
-        // encoding(1) + lang(3) + short desc(2 nulls for utf16) + text BOM(2) + text
         byte[] payload = new byte[1 + 3 + 2 + 2 + textBytes.Length];
         payload[0] = 1; // UTF-16
         payload[1] = (byte)'e';
         payload[2] = (byte)'n';
         payload[3] = (byte)'g';
-        payload[4] = 0; // Null short desc
+        payload[4] = 0;
         payload[5] = 0;
         payload[6] = 0xFF; // BOM
         payload[7] = 0xFE;
@@ -555,23 +621,28 @@ public class Mp3TagService
         WriteFrame(stream, frameId, payload);
     }
 
+    /// <summary>
+    /// Writes an attached picture (APIC) front cover frame.
+    /// </summary>
     private static void WriteApicFrame(Stream stream, byte[] imageBytes, string mimeType)
     {
         byte[] mimeBytes = Latin1.GetBytes(mimeType);
-        // encoding(1) + mime + null(1) + pictureType(1: 0x03 FrontCover) + desc nulls(1) + imageData
         byte[] payload = new byte[1 + mimeBytes.Length + 1 + 1 + 1 + imageBytes.Length];
         int idx = 0;
         payload[idx++] = 0; // ISO-8859-1 for mime & desc
         Array.Copy(mimeBytes, 0, payload, idx, mimeBytes.Length);
         idx += mimeBytes.Length;
-        payload[idx++] = 0; // Null term
+        payload[idx++] = 0;
         payload[idx++] = 0x03; // Front cover
-        payload[idx++] = 0; // Empty description null term
+        payload[idx++] = 0;
         Array.Copy(imageBytes, 0, payload, idx, imageBytes.Length);
 
         WriteFrame(stream, "APIC", payload);
     }
 
+    /// <summary>
+    /// Writes frame ID, size header, and payload into stream.
+    /// </summary>
     private static void WriteFrame(Stream stream, string frameId, byte[] payload)
     {
         byte[] idBytes = Latin1.GetBytes(frameId);
@@ -581,12 +652,15 @@ public class Mp3TagService
         WriteBigEndianInt32(payload.Length, sizeBytes, 0);
         stream.Write(sizeBytes, 0, 4);
 
-        stream.WriteByte(0); // Flag 1
-        stream.WriteByte(0); // Flag 2
+        stream.WriteByte(0);
+        stream.WriteByte(0);
 
         stream.Write(payload, 0, payload.Length);
     }
 
+    /// <summary>
+    /// Builds a 128-byte legacy ID3v1 tag.
+    /// </summary>
     private static byte[] BuildId3v1Tag(TrackMetadata meta)
     {
         byte[] tag = new byte[128];
@@ -603,7 +677,7 @@ public class Mp3TagService
 
         tag[125] = 0;
         tag[126] = (byte)(meta.TrackNumber ?? 0);
-        tag[127] = 255; // Unknown genre
+        tag[127] = 255;
 
         return tag;
     }
