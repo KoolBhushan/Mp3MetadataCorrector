@@ -1,0 +1,93 @@
+name: Build and Package Installer
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build & Package Windows Installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Tools (yt-dlp & ffmpeg)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "Mp3MetadataCorrector/tools" -Force | Out-Null
+
+          Write-Host "Downloading latest yt-dlp.exe..."
+          Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile "Mp3MetadataCorrector/tools/yt-dlp.exe"
+
+          Write-Host "Configuring ffmpeg..."
+          $ffmpegCmd = Get-Command ffmpeg.exe -ErrorAction SilentlyContinue
+          $ffprobeCmd = Get-Command ffprobe.exe -ErrorAction SilentlyContinue
+          if ($ffmpegCmd) {
+              Copy-Item $ffmpegCmd.Source "Mp3MetadataCorrector/tools/ffmpeg.exe" -Force
+          }
+          if ($ffprobeCmd) {
+              Copy-Item $ffprobeCmd.Source "Mp3MetadataCorrector/tools/ffprobe.exe" -Force
+          }
+
+          Get-ChildItem "Mp3MetadataCorrector/tools"
+
+      - name: Run Verification Unit Tests
+        shell: pwsh
+        run: |
+          dotnet run --project Mp3MetadataCorrector.Tests/Mp3MetadataCorrector.Tests.csproj -c Release
+
+      - name: Publish WinUI 3 Application
+        shell: pwsh
+        run: |
+          dotnet publish Mp3MetadataCorrector/Mp3MetadataCorrector.csproj -c Release -r win-x64 --self-contained false -o publish
+
+      - name: Package App Payload Archive
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "installer" -Force | Out-Null
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          [System.IO.Compression.ZipFile]::CreateFromDirectory("publish", "installer/app_payload.zip")
+          Get-Item "installer/app_payload.zip" | Select-Object Length, LastWriteTime
+
+      - name: Build Standalone Windows Setup Installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "Output_Installer" -Force | Out-Null
+          dotnet publish installer/Mp3MetadataCorrector.Installer.csproj -c Release -o Output_Installer
+
+      - name: Compile Inno Setup Installer (if available)
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (Test-Path $iscc) {
+              Write-Host "Compiling with Inno Setup..."
+              & $iscc installer/setup.iss
+          }
+
+      - name: Verify Installer Artifacts
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path "Output_Installer"
+
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mp3MetadataCorrector-Installer
+          path: |
+            Output_Installer/Mp3MetadataCorrector_Setup.exe
+            Output_Installer/Mp3MetadataCorrector_Setup.dll
+            Output_Installer/Mp3MetadataCorrector_Setup.deps.json
+            Output_Installer/Mp3MetadataCorrector_Setup.runtimeconfig.json
+            Output_Installer/Install.ps1
+            Output_Installer/Mp3MetadataCorrector_InnoSetup.exe
+          if-no-files-found: warn
