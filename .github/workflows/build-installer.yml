@@ -30,6 +30,11 @@ jobs:
           Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile "Mp3MetadataCorrector/tools/yt-dlp.exe"
 
           Write-Host "Configuring ffmpeg..."
+          if (-not (Get-Command ffmpeg.exe -ErrorAction SilentlyContinue)) {
+              Write-Host "Installing ffmpeg via Chocolatey..."
+              choco install ffmpeg -y --no-progress
+          }
+
           $ffmpegCmd = Get-Command ffmpeg.exe -ErrorAction SilentlyContinue
           $ffprobeCmd = Get-Command ffprobe.exe -ErrorAction SilentlyContinue
           if ($ffmpegCmd) {
@@ -83,11 +88,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Mp3MetadataCorrector-Installer
-          path: |
-            Output_Installer/Mp3MetadataCorrector_Setup.exe
-            Output_Installer/Mp3MetadataCorrector_Setup.dll
-            Output_Installer/Mp3MetadataCorrector_Setup.deps.json
-            Output_Installer/Mp3MetadataCorrector_Setup.runtimeconfig.json
-            Output_Installer/Install.ps1
-            Output_Installer/Mp3MetadataCorrector_InnoSetup.exe
+          path: Output_Installer/*
           if-no-files-found: warn
