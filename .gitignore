@@ -1,0 +1,28 @@
+# Large APK and decompilation files
+jadx/
+jadx.zip
+spotify-9-2-4-2644/
+spotify-source/
+*.apk
+*.zip
+
+# Local .NET environment & caches
+.dotnet_home/
+
+# Build and binary artifacts
+**/bin/
+**/obj/
+**/publish/
+*.user
+*.suo
+.vs/
+.idea/
+
+# Large binaries and tools
+**/tools/*.exe
+installer/app_payload.zip
+Output_Installer/*.exe
+Output_Installer/*.dll
+Output_Installer/*.pdb
+Output_Installer/*.deps.json
+Output_Installer/*.runtimeconfig.json

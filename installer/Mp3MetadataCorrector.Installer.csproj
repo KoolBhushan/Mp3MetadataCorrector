@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Mp3MetadataCorrector.Installer</RootNamespace>
+    <AssemblyName>Mp3MetadataCorrector_Setup</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="app_payload.zip">
+      <LogicalName>app_payload.zip</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+</Project>
