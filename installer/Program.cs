@@ -139,9 +139,16 @@ public class SetupForm : Form
         InitializeComponents();
     }
 
+    private static string GetApplicationVersion()
+    {
+        var ver = Assembly.GetExecutingAssembly().GetName().Version;
+        return ver != null ? $"{ver.Major}.{ver.Minor}.{ver.Build}" : "1.0.0";
+    }
+
     private void InitializeComponents()
     {
-        Text = "MP3 Metadata Corrector Setup";
+        string version = GetApplicationVersion();
+        Text = $"MP3 Metadata Corrector v{version} Setup";
         Size = new Size(580, 440);
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -158,7 +165,7 @@ public class SetupForm : Form
 
         var lblTitle = new Label
         {
-            Text = "MP3 Metadata Corrector",
+            Text = $"MP3 Metadata Corrector v{version}",
             ForeColor = Color.White,
             Font = new Font("Segoe UI Semibold", 14F, FontStyle.Bold),
             Location = new Point(20, 16),
@@ -467,8 +474,9 @@ public class SetupForm : Form
             using var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\Mp3MetadataCorrector");
             if (key != null)
             {
-                key.SetValue("DisplayName", "MP3 Metadata Corrector");
-                key.SetValue("DisplayVersion", "1.0.0");
+                string version = GetApplicationVersion();
+                key.SetValue("DisplayName", $"MP3 Metadata Corrector v{version}");
+                key.SetValue("DisplayVersion", version);
                 key.SetValue("Publisher", "Bhushan Kamble");
                 key.SetValue("InstallLocation", installDir);
                 key.SetValue("DisplayIcon", exePath);

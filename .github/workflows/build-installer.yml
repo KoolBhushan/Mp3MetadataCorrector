@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build & Package Windows Installer
@@ -20,6 +23,17 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
+      - name: Determine Auto-Incremented Version
+        id: versioning
+        shell: pwsh
+        run: |
+          $majorMinor = "1.0"
+          $buildNumber = "${{ github.run_number }}"
+          $appVersion = "$majorMinor.$buildNumber"
+          Write-Host "Determined Auto-Incremented Version: $appVersion"
+          "APP_VERSION=$appVersion" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "version=$appVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Setup Tools (yt-dlp & ffmpeg)
         shell: pwsh
@@ -54,7 +68,8 @@ jobs:
       - name: Publish WinUI 3 Application
         shell: pwsh
         run: |
-          dotnet publish Mp3MetadataCorrector/Mp3MetadataCorrector.csproj -c Release -r win-x64 --self-contained false -o publish
+          $ver = $env:APP_VERSION
+          dotnet publish Mp3MetadataCorrector/Mp3MetadataCorrector.csproj -c Release -r win-x64 --self-contained false -p:Version=$ver -p:AssemblyVersion=$ver -p:FileVersion=$ver -o publish
 
       - name: Package App Payload Archive
         shell: pwsh
@@ -67,16 +82,19 @@ jobs:
       - name: Build Standalone Windows Setup Installer
         shell: pwsh
         run: |
+          $ver = $env:APP_VERSION
           New-Item -ItemType Directory -Path "Output_Installer" -Force | Out-Null
-          dotnet publish installer/Mp3MetadataCorrector.Installer.csproj -c Release -o Output_Installer
+          dotnet publish installer/Mp3MetadataCorrector.Installer.csproj -c Release -p:Version=$ver -p:AssemblyVersion=$ver -p:FileVersion=$ver -o Output_Installer
+          Copy-Item "Output_Installer/Mp3MetadataCorrector_Setup.exe" "Output_Installer/Mp3MetadataCorrector_Setup_v$ver.exe" -Force
 
       - name: Compile Inno Setup Installer (if available)
         shell: pwsh
         run: |
+          $ver = $env:APP_VERSION
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           if (Test-Path $iscc) {
-              Write-Host "Compiling with Inno Setup..."
-              & $iscc installer/setup.iss
+              Write-Host "Compiling with Inno Setup for version $ver..."
+              & $iscc "/DMyAppVersion=$ver" installer/setup.iss
           }
 
       - name: Verify Installer Artifacts
@@ -87,6 +105,21 @@ jobs:
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Mp3MetadataCorrector-Installer
+          name: Mp3MetadataCorrector-Installer-v${{ env.APP_VERSION }}
           path: Output_Installer/*
           if-no-files-found: warn
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.APP_VERSION }}
+          name: "MP3 Metadata Corrector v${{ env.APP_VERSION }}"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            Output_Installer/*.exe
+            installer/app_payload.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,6 +1,8 @@
 ; Inno Setup Script for MP3 Metadata Corrector
 #define MyAppName "MP3 Metadata Corrector"
+#ifndef MyAppVersion
 #define MyAppVersion "1.0.0"
+#endif
 #define MyAppPublisher "Bhushan Kamble"
 #define MyAppExeName "Mp3MetadataCorrector.exe"
 #define MyAppAssocName MyAppName + " File"
@@ -16,7 +18,7 @@ DefaultDirName={autopf}\{#MyAppName}
 ChangesAssociations=yes
 DisableProgramGroupPage=yes
 OutputDir=..\Output_Installer
-OutputBaseFilename=Mp3MetadataCorrector_InnoSetup
+OutputBaseFilename=Mp3MetadataCorrector_InnoSetup_v{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
