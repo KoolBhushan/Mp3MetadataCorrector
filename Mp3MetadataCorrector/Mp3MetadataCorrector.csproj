@@ -9,6 +9,7 @@
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <UseWinUI>true</UseWinUI>
     <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
@@ -22,4 +23,14 @@
   <ItemGroup>
     <None Include="tools\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Target Name="CopyXbfAndPriToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <XbfFiles Include="$(TargetDir)**\*.xbf" />
+      <PriFiles Include="$(TargetDir)**\*.pri" />
+    </ItemGroup>
+    <Copy SourceFiles="@(XbfFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(PriFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(TargetDir)$(TargetName).pri" DestinationFiles="$(PublishDir)resources.pri" Condition="Exists('$(TargetDir)$(TargetName).pri')" SkipUnchangedFiles="true" />
+  </Target>
 </Project>
