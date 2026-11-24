@@ -21,6 +21,7 @@ ChangesAssociations=yes
 DisableProgramGroupPage=yes
 OutputDir=..\Output_Installer
 OutputBaseFilename=Mp3MetadataCorrector_InnoSetup_v{#MyAppVersion}
+SetupIconFile=app.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

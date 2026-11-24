@@ -10,6 +10,7 @@
     <Compile Include="..\Mp3MetadataCorrector\Models\TrackMetadata.cs" Link="TrackMetadata.cs" />
     <Compile Include="..\Mp3MetadataCorrector\Models\SearchResult.cs" Link="SearchResult.cs" />
     <Compile Include="..\Mp3MetadataCorrector\Services\FileNameParser.cs" Link="FileNameParser.cs" />
+    <Compile Include="..\Mp3MetadataCorrector\Services\LoggingService.cs" Link="LoggingService.cs" />
     <Compile Include="..\Mp3MetadataCorrector\Services\Mp3TagService.cs" Link="Mp3TagService.cs" />
   </ItemGroup>
 </Project>

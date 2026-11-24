@@ -41,43 +41,56 @@ public class Mp3TagService
     /// <returns>A populated <see cref="TrackMetadata"/> instance.</returns>
     public TrackMetadata ReadMetadata(string filePath)
     {
+        Logger.Info($"[Mp3TagService] Reading metadata from: '{filePath}'");
         var meta = new TrackMetadata
         {
             FilePath = filePath
         };
 
-        var fileInfo = new FileInfo(filePath);
-        if (!fileInfo.Exists)
+        try
+        {
+            var fileInfo = new FileInfo(filePath);
+            if (!fileInfo.Exists)
+            {
+                Logger.Warn($"[Mp3TagService] File does not exist: '{filePath}'");
+                return meta;
+            }
+
+            meta.FileSize = fileInfo.Length;
+
+            using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new BinaryReader(fs);
+
+            long id3v2Size = 0;
+            bool hasId3v2 = ReadId3v2(reader, meta, out id3v2Size);
+
+            // Fallback to ID3v1 if fields are missing
+            if (string.IsNullOrWhiteSpace(meta.Title) || string.IsNullOrWhiteSpace(meta.Artist))
+            {
+                ReadId3v1(reader, meta);
+            }
+
+            // Parse MPEG Audio frames for Bitrate, Duration, SampleRate
+            ParseAudioProperties(reader, meta, id3v2Size);
+
+            // If title is still missing, fallback to filename
+            if (string.IsNullOrWhiteSpace(meta.Title))
+            {
+                var parsed = FileNameParser.Parse(filePath);
+                if (!string.IsNullOrWhiteSpace(parsed.Title))
+                    meta.Title = parsed.Title;
+                if (!string.IsNullOrWhiteSpace(parsed.Artist) && string.IsNullOrWhiteSpace(meta.Artist))
+                    meta.Artist = parsed.Artist;
+            }
+
+            Logger.Info($"[Mp3TagService] Read complete. Title: '{meta.Title}', Artist: '{meta.Artist}', Album: '{meta.Album}', HasArt: {meta.HasCoverArt}");
             return meta;
-
-        meta.FileSize = fileInfo.Length;
-
-        using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        using var reader = new BinaryReader(fs);
-
-        long id3v2Size = 0;
-        bool hasId3v2 = ReadId3v2(reader, meta, out id3v2Size);
-
-        // Fallback to ID3v1 if fields are missing
-        if (string.IsNullOrWhiteSpace(meta.Title) || string.IsNullOrWhiteSpace(meta.Artist))
-        {
-            ReadId3v1(reader, meta);
         }
-
-        // Parse MPEG Audio frames for Bitrate, Duration, SampleRate
-        ParseAudioProperties(reader, meta, id3v2Size);
-
-        // If title is still missing, fallback to filename
-        if (string.IsNullOrWhiteSpace(meta.Title))
+        catch (Exception ex)
         {
-            var parsed = FileNameParser.Parse(filePath);
-            if (!string.IsNullOrWhiteSpace(parsed.Title))
-                meta.Title = parsed.Title;
-            if (!string.IsNullOrWhiteSpace(parsed.Artist) && string.IsNullOrWhiteSpace(meta.Artist))
-                meta.Artist = parsed.Artist;
+            Logger.Error($"[Mp3TagService] Error reading metadata from: '{filePath}'", ex);
+            throw;
         }
-
-        return meta;
     }
 
     /// <summary>
@@ -451,79 +464,98 @@ public class Mp3TagService
         if (string.IsNullOrEmpty(targetPath))
             throw new ArgumentException("Target file path cannot be empty.");
 
-        // Read the pure audio data without old ID3v2 header
-        byte[] audioData;
-        using (var fs = new FileStream(meta.FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-        using (var reader = new BinaryReader(fs))
-        {
-            long startPos = 0;
-            if (fs.Length >= 10)
-            {
-                byte[] head = reader.ReadBytes(10);
-                if (head[0] == 'I' && head[1] == 'D' && head[2] == '3')
-                {
-                    int tagSize = DecodeSynchsafe(head, 6);
-                    bool hasFooter = (head[5] & 0x10) != 0;
-                    startPos = 10 + tagSize + (hasFooter ? 10 : 0);
-                }
-            }
-
-            // Strip ID3v1 at the tail if present
-            long endPos = fs.Length;
-            if (fs.Length >= 128)
-            {
-                fs.Position = fs.Length - 128;
-                byte[] v1Head = reader.ReadBytes(3);
-                if (v1Head[0] == 'T' && v1Head[1] == 'A' && v1Head[2] == 'G')
-                {
-                    endPos = fs.Length - 128;
-                }
-            }
-
-            long audioLen = Math.Max(0, endPos - startPos);
-            fs.Position = startPos;
-            audioData = reader.ReadBytes((int)audioLen);
-        }
-
-        // Build new ID3v2.3 tag buffer
-        byte[] newId3v2 = BuildId3v2Tag(meta);
-
-        // Build new ID3v1 tag buffer
-        byte[] newId3v1 = BuildId3v1Tag(meta);
-
-        // Write safely to a temp file, then atomic move
-        string tempFile = targetPath + ".tmp_" + Guid.NewGuid().ToString("N")[..8];
+        Logger.Info($"[Mp3TagService] Writing metadata to: '{targetPath}' (source: '{meta.FilePath}')");
         try
         {
-            using (var outFs = new FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None))
+            // Build new ID3v2.3 tag buffer
+            byte[] newId3v2 = BuildId3v2Tag(meta);
+
+            // Build new ID3v1 tag buffer
+            byte[] newId3v1 = BuildId3v1Tag(meta);
+
+            // Write safely to a temp file, then atomic move
+            string tempFile = targetPath + ".tmp_" + Guid.NewGuid().ToString("N")[..8];
+            try
             {
-                outFs.Write(newId3v2, 0, newId3v2.Length);
-                outFs.Write(audioData, 0, audioData.Length);
-                outFs.Write(newId3v1, 0, newId3v1.Length);
-                outFs.Flush();
-            }
+                using (var fs = new FileStream(meta.FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var reader = new BinaryReader(fs))
+                using (var outFs = new FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None, 65536))
+                {
+                    long startPos = 0;
+                    if (fs.Length >= 10)
+                    {
+                        byte[] head = reader.ReadBytes(10);
+                        if (head[0] == 'I' && head[1] == 'D' && head[2] == '3')
+                        {
+                            int tagSize = DecodeSynchsafe(head, 6);
+                            bool hasFooter = (head[5] & 0x10) != 0;
+                            startPos = 10 + tagSize + (hasFooter ? 10 : 0);
+                        }
+                    }
 
-            if (File.Exists(targetPath) && !string.Equals(meta.FilePath, targetPath, StringComparison.OrdinalIgnoreCase))
+                    // Strip ID3v1 at the tail if present
+                    long endPos = fs.Length;
+                    if (fs.Length >= 128)
+                    {
+                        fs.Position = fs.Length - 128;
+                        byte[] v1Head = reader.ReadBytes(3);
+                        if (v1Head[0] == 'T' && v1Head[1] == 'A' && v1Head[2] == 'G')
+                        {
+                            endPos = fs.Length - 128;
+                        }
+                    }
+
+                    long audioLen = Math.Max(0, endPos - startPos);
+
+                    // 1. Write new ID3v2 tag
+                    outFs.Write(newId3v2, 0, newId3v2.Length);
+
+                    // 2. Stream audio stream in 64 KB chunks without buffering full file into RAM
+                    fs.Position = startPos;
+                    byte[] buffer = new byte[65536];
+                    long remaining = audioLen;
+                    while (remaining > 0)
+                    {
+                        int toRead = (int)Math.Min(buffer.Length, remaining);
+                        int read = fs.Read(buffer, 0, toRead);
+                        if (read <= 0) break;
+                        outFs.Write(buffer, 0, read);
+                        remaining -= read;
+                    }
+
+                    // 3. Write new ID3v1 tag
+                    outFs.Write(newId3v1, 0, newId3v1.Length);
+                    outFs.Flush();
+                }
+
+                if (File.Exists(targetPath) && !string.Equals(meta.FilePath, targetPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    File.Delete(targetPath);
+                }
+
+                File.Move(tempFile, targetPath, overwrite: true);
+
+                if (!string.Equals(meta.FilePath, targetPath, StringComparison.OrdinalIgnoreCase) && File.Exists(meta.FilePath))
+                {
+                    File.Delete(meta.FilePath);
+                }
+
+                meta.FilePath = targetPath;
+                meta.FileSize = new FileInfo(targetPath).Length;
+                Logger.Info($"[Mp3TagService] Successfully wrote tags and artwork to '{targetPath}'. Final size: {meta.FileSize} bytes.");
+            }
+            finally
             {
-                File.Delete(targetPath);
+                if (File.Exists(tempFile))
+                {
+                    try { File.Delete(tempFile); } catch { }
+                }
             }
-
-            File.Move(tempFile, targetPath, overwrite: true);
-
-            if (!string.Equals(meta.FilePath, targetPath, StringComparison.OrdinalIgnoreCase) && File.Exists(meta.FilePath))
-            {
-                File.Delete(meta.FilePath);
-            }
-
-            meta.FilePath = targetPath;
-            meta.FileSize = new FileInfo(targetPath).Length;
         }
-        finally
+        catch (Exception ex)
         {
-            if (File.Exists(tempFile))
-            {
-                try { File.Delete(tempFile); } catch { }
-            }
+            Logger.Error($"[Mp3TagService] Failed to write metadata to: '{targetPath}'", ex);
+            throw;
         }
     }
 

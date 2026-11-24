@@ -7,6 +7,7 @@
     <RootNamespace>Mp3MetadataCorrector.Installer</RootNamespace>
     <AssemblyName>Mp3MetadataCorrector_Setup</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

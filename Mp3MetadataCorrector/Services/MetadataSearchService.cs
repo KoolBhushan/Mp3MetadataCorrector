@@ -64,6 +64,7 @@ public class MetadataSearchService
         if (string.IsNullOrWhiteSpace(query))
             return results;
 
+        Logger.Info($"[MetadataSearchService] Searching online metadata for '{query}' [Provider: {provider}]");
         string cleanQuery = Uri.EscapeDataString(query.Trim());
 
         if (provider is "All" or "iTunes")
@@ -72,10 +73,11 @@ public class MetadataSearchService
             {
                 var itunesResults = await SearchITunesAsync(cleanQuery, ct);
                 results.AddRange(itunesResults);
+                Logger.Info($"[MetadataSearchService] iTunes search returned {itunesResults.Count} match(es).");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"iTunes search error: {ex.Message}");
+                Logger.Warn($"[MetadataSearchService] iTunes search query failed for '{query}'", ex);
             }
         }
 
@@ -85,13 +87,15 @@ public class MetadataSearchService
             {
                 var mbResults = await SearchMusicBrainzAsync(cleanQuery, ct);
                 results.AddRange(mbResults);
+                Logger.Info($"[MetadataSearchService] MusicBrainz search returned {mbResults.Count} match(es).");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"MusicBrainz search error: {ex.Message}");
+                Logger.Warn($"[MetadataSearchService] MusicBrainz search query failed for '{query}'", ex);
             }
         }
 
+        Logger.Info($"[MetadataSearchService] Total search results gathered: {results.Count}");
         return results;
     }
 
@@ -307,18 +311,24 @@ public class MetadataSearchService
         if (string.IsNullOrWhiteSpace(url))
             return null;
 
+        Logger.Info($"[MetadataSearchService] Downloading artwork from: {url}");
         try
         {
             using var response = await _httpClient.GetAsync(url, ct);
             if (!response.IsSuccessStatusCode)
+            {
+                Logger.Warn($"[MetadataSearchService] Artwork download returned status: {response.StatusCode} for {url}");
                 return null;
+            }
 
             byte[] data = await response.Content.ReadAsByteArrayAsync(ct);
             string mime = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+            Logger.Info($"[MetadataSearchService] Downloaded artwork ({data.Length} bytes, MIME: {mime}) from: {url}");
             return (data, mime);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Error($"[MetadataSearchService] Failed to download artwork from: {url}", ex);
             return null;
         }
     }

@@ -20,6 +20,7 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Windows.ApplicationModel.DataTransfer;
@@ -31,6 +32,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Mp3MetadataCorrector.Models;
+using Mp3MetadataCorrector.Services;
 using Mp3MetadataCorrector.ViewModels;
 using WinRT.Interop;
 
@@ -51,6 +53,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public MainWindow()
     {
+        Logger.Info("Initializing MainWindow components and ViewModel...");
         ViewModel = new MainViewModel();
         this.InitializeComponent();
 
@@ -58,29 +61,68 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Configures the window dimensions, title, and initial center screen placement.
+    /// Configures the window dimensions, title, icon, and initial center screen placement.
     /// </summary>
     private void ConfigureWindow()
     {
-        Title = "MP3 Metadata Corrector";
-
-        IntPtr hWnd = WindowNative.GetWindowHandle(this);
-        WindowId windowId = Win32Interop.GetWindowIdFromWindow(hWnd);
-        AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
-
-        if (appWindow != null)
+        try
         {
-            appWindow.Resize(new Windows.Graphics.SizeInt32(1220, 850));
+            Title = "MP3 Metadata Corrector";
 
-            var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
-            if (displayArea != null)
+            IntPtr hWnd = WindowNative.GetWindowHandle(this);
+            WindowId windowId = Win32Interop.GetWindowIdFromWindow(hWnd);
+            AppWindow appWindow = AppWindow.GetFromWindowId(windowId);
+
+            if (appWindow != null)
             {
-                var centeredPosition = appWindow.Position;
-                centeredPosition.X = ((displayArea.WorkArea.Width - 1220) / 2);
-                centeredPosition.Y = ((displayArea.WorkArea.Height - 850) / 2);
-                appWindow.Move(centeredPosition);
+                // Set window dimensions and center on screen
+                appWindow.Resize(new Windows.Graphics.SizeInt32(1220, 850));
+
+                var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
+                if (displayArea != null)
+                {
+                    var centeredPosition = appWindow.Position;
+                    centeredPosition.X = ((displayArea.WorkArea.Width - 1220) / 2);
+                    centeredPosition.Y = ((displayArea.WorkArea.Height - 850) / 2);
+                    appWindow.Move(centeredPosition);
+                }
+
+                // Apply Application Icon
+                string iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico");
+                if (!File.Exists(iconPath))
+                {
+                    // Fallback to dev project structure if running from bin
+                    string devIcon = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\Assets\app.ico"));
+                    if (File.Exists(devIcon))
+                    {
+                        iconPath = devIcon;
+                    }
+                }
+
+                if (File.Exists(iconPath))
+                {
+                    appWindow.SetIcon(iconPath);
+                    Logger.Info($"AppWindow icon successfully set from: {iconPath}");
+                }
+                else
+                {
+                    Logger.Warn($"App icon file not found at expected path: {iconPath}");
+                }
             }
         }
+        catch (Exception ex)
+        {
+            Logger.Error("Error configuring window appearance or icon", ex);
+        }
+    }
+
+    /// <summary>
+    /// Opens the application log file for inspection.
+    /// </summary>
+    private void OnOpenLogsClick(object sender, RoutedEventArgs e)
+    {
+        Logger.Info("User clicked 'Logs' button; opening active log file.");
+        Logger.OpenLogFile();
     }
 
     /// <summary>
@@ -88,7 +130,15 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnToggleDownloaderClick(object sender, RoutedEventArgs e)
     {
-        ViewModel.ToggleDownloader();
+        try
+        {
+            Logger.Info("Toggling downloader panel visibility.");
+            ViewModel.ToggleDownloader();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Error toggling downloader", ex);
+        }
     }
 
     /// <summary>
@@ -98,7 +148,15 @@ public sealed partial class MainWindow : Window
     {
         if (e.Key == Windows.System.VirtualKey.Enter)
         {
-            await ViewModel.DownloadMp3Async();
+            try
+            {
+                Logger.Info($"User pressed Enter in download URL box. URL: {ViewModel.DownloadUrl}");
+                await ViewModel.DownloadMp3Async();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error in OnDownloadUrlKeyDown", ex);
+            }
         }
     }
 
@@ -109,6 +167,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
+            Logger.Info("Opening FolderPicker for download directory...");
             var folderPicker = new FolderPicker();
             IntPtr hWnd = WindowNative.GetWindowHandle(this);
             InitializeWithWindow.Initialize(folderPicker, hWnd);
@@ -120,11 +179,12 @@ public sealed partial class MainWindow : Window
             if (folder != null)
             {
                 ViewModel.DownloadFolder = folder.Path;
+                Logger.Info($"Selected download destination folder: {folder.Path}");
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Pick download folder error: {ex.Message}");
+            Logger.Error("Error picking download folder", ex);
         }
     }
 
@@ -135,6 +195,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
+            Logger.Info("Opening FileOpenPicker for MP3 selection...");
             var picker = new FileOpenPicker();
             IntPtr hWnd = WindowNative.GetWindowHandle(this);
             InitializeWithWindow.Initialize(picker, hWnd);
@@ -146,6 +207,7 @@ public sealed partial class MainWindow : Window
             var files = await picker.PickMultipleFilesAsync();
             if (files != null && files.Count > 0)
             {
+                Logger.Info($"User selected {files.Count} file(s) from picker.");
                 var paths = new string[files.Count];
                 for (int i = 0; i < files.Count; i++)
                 {
@@ -156,7 +218,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"File pick error: {ex.Message}");
+            Logger.Error("Error during file open picker operation", ex);
         }
     }
 
@@ -167,6 +229,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
+            Logger.Info("Opening FolderPicker for batch MP3 import...");
             var folderPicker = new FolderPicker();
             IntPtr hWnd = WindowNative.GetWindowHandle(this);
             InitializeWithWindow.Initialize(folderPicker, hWnd);
@@ -178,9 +241,11 @@ public sealed partial class MainWindow : Window
             if (folder != null)
             {
                 string folderPath = folder.Path;
+                Logger.Info($"User selected folder: {folderPath}");
                 if (Directory.Exists(folderPath))
                 {
                     string[] mp3Files = Directory.GetFiles(folderPath, "*.mp3", SearchOption.TopDirectoryOnly);
+                    Logger.Info($"Discovered {mp3Files.Length} .mp3 file(s) in '{folderPath}'.");
                     if (mp3Files.Length > 0)
                     {
                         await ViewModel.AddFilesAsync(mp3Files);
@@ -190,7 +255,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Folder pick error: {ex.Message}");
+            Logger.Error("Error during folder open picker operation", ex);
         }
     }
 
@@ -199,8 +264,16 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnClearListClick(object sender, RoutedEventArgs e)
     {
-        ViewModel.Files.Clear();
-        ViewModel.SelectedFile = null;
+        try
+        {
+            Logger.Info("Clearing file queue.");
+            ViewModel.Files.Clear();
+            ViewModel.SelectedFile = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Error clearing file list", ex);
+        }
     }
 
     /// <summary>
@@ -210,6 +283,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
+            Logger.Info("Opening FileOpenPicker for custom cover artwork...");
             var picker = new FileOpenPicker();
             IntPtr hWnd = WindowNative.GetWindowHandle(this);
             InitializeWithWindow.Initialize(picker, hWnd);
@@ -223,6 +297,7 @@ public sealed partial class MainWindow : Window
             var file = await picker.PickSingleFileAsync();
             if (file != null)
             {
+                Logger.Info($"Selected artwork image: {file.Path} ({file.FileType})");
                 byte[] bytes = File.ReadAllBytes(file.Path);
                 string mime = file.FileType.ToLowerInvariant() switch
                 {
@@ -234,7 +309,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Change cover art error: {ex.Message}");
+            Logger.Error("Error changing cover art via file picker", ex);
         }
     }
 
@@ -243,7 +318,15 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnRemoveCoverArtClick(object sender, RoutedEventArgs e)
     {
-        ViewModel.RemoveCoverArt();
+        try
+        {
+            Logger.Info("Removing current candidate cover art.");
+            ViewModel.RemoveCoverArt();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Error removing cover art", ex);
+        }
     }
 
     /// <summary>
@@ -251,9 +334,17 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private async void OnApplyResultClick(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: SearchResult result })
+        try
         {
-            await ViewModel.ApplySearchResultAsync(result);
+            if (sender is Button { Tag: SearchResult result })
+            {
+                Logger.Info($"User clicked apply on search result: '{result.Title}' by '{result.Artist}' [{result.Source}].");
+                await ViewModel.ApplySearchResultAsync(result);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Error in OnApplyResultClick", ex);
         }
     }
 
@@ -264,7 +355,34 @@ public sealed partial class MainWindow : Window
     {
         if (e.Key == Windows.System.VirtualKey.Enter)
         {
-            await ViewModel.SearchAsync();
+            try
+            {
+                Logger.Info($"User pressed Enter in search query box: '{ViewModel.SearchQuery}'.");
+                await ViewModel.SearchAsync();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error in OnSearchBoxKeyDown", ex);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Applies the selected online search match to the editable metadata fields.
+    /// </summary>
+    private async void OnSearchResultItemClick(object sender, ItemClickEventArgs e)
+    {
+        try
+        {
+            if (e.ClickedItem is SearchResult result)
+            {
+                Logger.Info($"User clicked search result: '{result.Title}' by '{result.Artist}' [{result.Source}].");
+                await ViewModel.ApplySearchResultAsync(result);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Error applying clicked search result", ex);
         }
     }
 
@@ -273,9 +391,16 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void OnGridDragOver(object sender, DragEventArgs e)
     {
-        e.AcceptedOperation = DataPackageOperation.Copy;
-        e.DragUIOverride.Caption = "Drop .mp3 files here";
-        e.DragUIOverride.IsContentVisible = true;
+        try
+        {
+            e.AcceptedOperation = DataPackageOperation.Copy;
+            e.DragUIOverride.Caption = "Drop .mp3 files here";
+            e.DragUIOverride.IsContentVisible = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Error in OnGridDragOver", ex);
+        }
     }
 
     /// <summary>
@@ -283,28 +408,43 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private async void OnGridDrop(object sender, DragEventArgs e)
     {
-        if (e.DataView.Contains(StandardDataFormats.StorageItems))
+        try
         {
-            var items = await e.DataView.GetStorageItemsAsync();
-            var paths = new System.Collections.Generic.List<string>();
-
-            foreach (var item in items)
+            if (e.DataView.Contains(StandardDataFormats.StorageItems))
             {
-                if (item is StorageFile file && file.FileType.Equals(".mp3", StringComparison.OrdinalIgnoreCase))
+                var items = await e.DataView.GetStorageItemsAsync();
+                var paths = new List<string>();
+
+                foreach (var item in items)
                 {
-                    paths.Add(file.Path);
+                    if (item is StorageFile file && file.FileType.Equals(".mp3", StringComparison.OrdinalIgnoreCase))
+                    {
+                        paths.Add(file.Path);
+                    }
+                    else if (item is StorageFolder folder)
+                    {
+                        try
+                        {
+                            string[] folderMp3s = Directory.GetFiles(folder.Path, "*.mp3", SearchOption.TopDirectoryOnly);
+                            paths.AddRange(folderMp3s);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warn($"Failed to scan dropped folder '{folder.Path}'", ex);
+                        }
+                    }
                 }
-                else if (item is StorageFolder folder)
+
+                if (paths.Count > 0)
                 {
-                    string[] folderMp3s = Directory.GetFiles(folder.Path, "*.mp3", SearchOption.TopDirectoryOnly);
-                    paths.AddRange(folderMp3s);
+                    Logger.Info($"Processing {paths.Count} dropped file path(s).");
+                    await ViewModel.AddFilesAsync(paths);
                 }
             }
-
-            if (paths.Count > 0)
-            {
-                await ViewModel.AddFilesAsync(paths);
-            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Error in OnGridDrop", ex);
         }
     }
 }

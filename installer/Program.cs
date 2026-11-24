@@ -155,6 +155,12 @@ public class SetupForm : Form
         MaximizeBox = false;
         Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
 
+        try
+        {
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+        }
+        catch { }
+
         // Header Panel
         var pnlHeader = new Panel
         {

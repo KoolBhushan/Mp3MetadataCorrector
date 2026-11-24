@@ -81,6 +81,12 @@
                             <TextBlock Text="Clear" />
                         </StackPanel>
                     </Button>
+                    <Button Click="OnOpenLogsClick" ToolTipService.ToolTip="Open application diagnostic logs">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE9F9;" FontSize="14" />
+                            <TextBlock Text="Logs" />
+                        </StackPanel>
+                    </Button>
                     <AppBarSeparator />
                     <CheckBox Content="Rename to 'Artist - Title.mp3'"
                               IsChecked="{x:Bind ViewModel.RenameFileOnSave, Mode=TwoWay}"

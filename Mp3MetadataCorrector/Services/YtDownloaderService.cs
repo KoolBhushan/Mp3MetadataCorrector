@@ -213,9 +213,11 @@ public class YtDownloaderService
         IProgress<DownloadProgressReport>? progress = null,
         CancellationToken ct = default)
     {
+        Logger.Info($"[YtDownloaderService] Request to download audio from: '{url}' into '{targetDirectory}'");
         string? ytDlpPath = FindYtDlpPath();
         if (string.IsNullOrEmpty(ytDlpPath))
         {
+            Logger.Error("[YtDownloaderService] yt-dlp.exe was not found.");
             throw new FileNotFoundException("yt-dlp.exe not found. Please click 'Install yt-dlp' first.");
         }
 
@@ -225,6 +227,11 @@ public class YtDownloaderService
         {
             string ffmpegDir = Path.GetDirectoryName(ffmpegPath) ?? ffmpegPath;
             ffmpegArg = $"--ffmpeg-location \"{ffmpegDir}\"";
+            Logger.Info($"[YtDownloaderService] Using ffmpeg from: '{ffmpegDir}'");
+        }
+        else
+        {
+            Logger.Warn("[YtDownloaderService] ffmpeg was not detected; conversion might fail or rely on system PATH.");
         }
 
         if (!Directory.Exists(targetDirectory))
@@ -234,6 +241,7 @@ public class YtDownloaderService
 
         string outputTemplate = Path.Combine(targetDirectory, "%(title)s.%(ext)s");
         string arguments = $"-x --audio-format mp3 --audio-quality 0 {ffmpegArg} --no-playlist --newline -o \"{outputTemplate}\" \"{url}\"";
+        Logger.Info($"[YtDownloaderService] Starting process '{ytDlpPath}' with args: {arguments}");
 
         var startInfo = new ProcessStartInfo
         {
@@ -264,6 +272,7 @@ public class YtDownloaderService
                 if (candidate.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase))
                 {
                     downloadedMp3Path = candidate;
+                    Logger.Info($"[YtDownloaderService] Destination MP3 identified: '{downloadedMp3Path}'");
                 }
             }
 
@@ -281,6 +290,7 @@ public class YtDownloaderService
             {
                 report.Status = "Converting audio to MP3 with ffmpeg...";
                 report.Percentage = 95;
+                Logger.Info("[YtDownloaderService] Audio extraction started with ffmpeg...");
             }
             else
             {
@@ -295,6 +305,7 @@ public class YtDownloaderService
         {
             if (!string.IsNullOrEmpty(e.Data))
             {
+                Logger.Warn($"[YtDownloaderService yt-dlp stderr] {e.Data}");
                 progress?.Report(new DownloadProgressReport
                 {
                     RawLine = e.Data,
@@ -303,52 +314,64 @@ public class YtDownloaderService
             }
         };
 
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+        try
+        {
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
 
-        using (ct.Register(() =>
-        {
-            try { if (!process.HasExited) process.Kill(true); } catch { }
-        }))
-        {
-            await process.WaitForExitAsync(ct);
-        }
-
-        if (process.ExitCode != 0)
-        {
-            throw new Exception($"yt-dlp exited with code {process.ExitCode}.");
-        }
-
-        // If exact destination wasn't regex-matched, find the newest .mp3 in targetDirectory
-        if (string.IsNullOrEmpty(downloadedMp3Path) || !File.Exists(downloadedMp3Path))
-        {
-            var mp3Files = Directory.GetFiles(targetDirectory, "*.mp3", SearchOption.TopDirectoryOnly);
-            DateTime newestTime = DateTime.MinValue;
-            foreach (var f in mp3Files)
+            using (ct.Register(() =>
             {
-                var fi = new FileInfo(f);
-                if (fi.LastWriteTime > newestTime && (DateTime.Now - fi.LastWriteTime).TotalMinutes < 5)
+                try { if (!process.HasExited) process.Kill(true); } catch { }
+            }))
+            {
+                await process.WaitForExitAsync(ct);
+            }
+
+            Logger.Info($"[YtDownloaderService] yt-dlp process exited with code: {process.ExitCode}");
+
+            if (process.ExitCode != 0)
+            {
+                throw new Exception($"yt-dlp exited with code {process.ExitCode}.");
+            }
+
+            // If exact destination wasn't regex-matched, find the newest .mp3 in targetDirectory
+            if (string.IsNullOrEmpty(downloadedMp3Path) || !File.Exists(downloadedMp3Path))
+            {
+                var mp3Files = Directory.GetFiles(targetDirectory, "*.mp3", SearchOption.TopDirectoryOnly);
+                DateTime newestTime = DateTime.MinValue;
+                foreach (var f in mp3Files)
                 {
-                    newestTime = fi.LastWriteTime;
-                    downloadedMp3Path = f;
+                    var fi = new FileInfo(f);
+                    if (fi.LastWriteTime > newestTime && (DateTime.Now - fi.LastWriteTime).TotalMinutes < 5)
+                    {
+                        newestTime = fi.LastWriteTime;
+                        downloadedMp3Path = f;
+                    }
                 }
             }
+
+            if (string.IsNullOrEmpty(downloadedMp3Path) || !File.Exists(downloadedMp3Path))
+            {
+                Logger.Error("[YtDownloaderService] Process finished but output MP3 file could not be located.");
+                throw new FileNotFoundException("Download completed but MP3 output file could not be located.");
+            }
+
+            Logger.Info($"[YtDownloaderService] Download and conversion finished successfully. File: '{downloadedMp3Path}'");
+            progress?.Report(new DownloadProgressReport
+            {
+                Percentage = 100,
+                Status = "Download & conversion complete!",
+                IsComplete = true,
+                DownloadedFilePath = downloadedMp3Path
+            });
+
+            return downloadedMp3Path;
         }
-
-        if (string.IsNullOrEmpty(downloadedMp3Path) || !File.Exists(downloadedMp3Path))
+        catch (Exception ex)
         {
-            throw new FileNotFoundException("Download completed but MP3 output file could not be located.");
+            Logger.Error($"[YtDownloaderService] Failure downloading audio from '{url}'", ex);
+            throw;
         }
-
-        progress?.Report(new DownloadProgressReport
-        {
-            Percentage = 100,
-            Status = "Download & conversion complete!",
-            IsComplete = true,
-            DownloadedFilePath = downloadedMp3Path
-        });
-
-        return downloadedMp3Path;
     }
 }

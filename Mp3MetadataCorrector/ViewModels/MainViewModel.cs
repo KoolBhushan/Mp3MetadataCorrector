@@ -358,13 +358,16 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
+            Logger.Info("[MainViewModel] Installing or updating yt-dlp...");
             await _downloaderService.InstallOrUpdateYtDlpAsync(progress);
             RefreshEngineStatus();
             DownloadStatusText = "yt-dlp installed and ready!";
             ShowStatusNotification("yt-dlp installed successfully!", InfoBarSeverity.Success);
+            Logger.Info("[MainViewModel] yt-dlp installation succeeded.");
         }
         catch (Exception ex)
         {
+            Logger.Error("[MainViewModel] yt-dlp installation failed", ex);
             DownloadStatusText = $"Installation error: {ex.Message}";
             ShowStatusNotification($"Failed to install yt-dlp: {ex.Message}", InfoBarSeverity.Error);
         }
@@ -409,6 +412,7 @@ public partial class MainViewModel : ObservableObject
                 DownloadStatusText = report.Status;
         });
 
+        Logger.Info($"[MainViewModel] Starting download from URL: '{DownloadUrl}' to folder: '{DownloadFolder}'");
         try
         {
             string mp3Path = await Task.Run(() =>
@@ -417,6 +421,7 @@ public partial class MainViewModel : ObservableObject
             DownloadProgressValue = 100;
             DownloadStatusText = $"Saved: {Path.GetFileName(mp3Path)}";
             ShowStatusNotification($"Downloaded '{Path.GetFileName(mp3Path)}' successfully! Now matching metadata...", InfoBarSeverity.Success);
+            Logger.Info($"[MainViewModel] Download completed successfully: '{mp3Path}'. Loading into editor.");
 
             // Automatically load and select the newly downloaded MP3!
             await AddFileAsync(mp3Path);
@@ -424,10 +429,12 @@ public partial class MainViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
+            Logger.Info("[MainViewModel] Download operation cancelled by user or system.");
             DownloadStatusText = "Download cancelled.";
         }
         catch (Exception ex)
         {
+            Logger.Error("[MainViewModel] Error during MP3 download and conversion", ex);
             DownloadStatusText = $"Download error: {ex.Message}";
             ShowStatusNotification($"Download error: {ex.Message}", InfoBarSeverity.Error);
         }
@@ -526,18 +533,23 @@ public partial class MainViewModel : ObservableObject
     public async Task AddFileAsync(string filePath)
     {
         if (!File.Exists(filePath) || !filePath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase))
+        {
+            Logger.Warn($"[MainViewModel] AddFileAsync skipped: path does not exist or is not an .mp3: '{filePath}'");
             return;
+        }
 
         // Check if already in list
         foreach (var item in Files)
         {
             if (string.Equals(item.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
             {
+                Logger.Info($"[MainViewModel] File already in queue, selecting it: '{filePath}'");
                 SelectedFile = item;
                 return;
             }
         }
 
+        Logger.Info($"[MainViewModel] Loading MP3 file: '{filePath}'");
         IsLoading = true;
         try
         {
@@ -545,9 +557,11 @@ public partial class MainViewModel : ObservableObject
             Files.Add(meta);
             SelectedFile = meta;
             ShowStatusNotification($"Loaded '{meta.FileName}' successfully.", InfoBarSeverity.Success);
+            Logger.Info($"[MainViewModel] Successfully loaded '{meta.FileName}'. Total files: {Files.Count}");
         }
         catch (Exception ex)
         {
+            Logger.Error($"[MainViewModel] Failed to read MP3 metadata: '{filePath}'", ex);
             ShowStatusNotification($"Failed to read MP3 metadata: {ex.Message}", InfoBarSeverity.Error);
         }
         finally
@@ -563,6 +577,7 @@ public partial class MainViewModel : ObservableObject
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task AddFilesAsync(IEnumerable<string> filePaths)
     {
+        Logger.Info("[MainViewModel] Batch loading files into queue...");
         IsLoading = true;
         TrackMetadata? first = null;
         int count = 0;
@@ -595,10 +610,12 @@ public partial class MainViewModel : ObservableObject
             {
                 SelectedFile = first;
                 ShowStatusNotification($"Loaded {count} MP3 file(s).", InfoBarSeverity.Success);
+                Logger.Info($"[MainViewModel] Batch load complete. Added {count} new file(s). Total queue size: {Files.Count}");
             }
         }
         catch (Exception ex)
         {
+            Logger.Error("[MainViewModel] Error during batch file import", ex);
             ShowStatusNotification($"Error loading files: {ex.Message}", InfoBarSeverity.Error);
         }
         finally
@@ -711,6 +728,7 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
+        Logger.Info($"[MainViewModel] SaveMetadataAsync triggered for: '{SelectedFile.FilePath}'. RenameOnSave={RenameFileOnSave}");
         IsSaving = true;
         try
         {
@@ -737,6 +755,7 @@ public partial class MainViewModel : ObservableObject
                 string dir = Path.GetDirectoryName(SelectedFile.FilePath) ?? "";
                 string newName = $"{safeArtist} - {safeTitle}.mp3";
                 newFilePath = Path.Combine(dir, newName);
+                Logger.Info($"[MainViewModel] Rename active. Target filename: '{newName}'");
             }
 
             await Task.Run(() => _tagService.WriteMetadata(updated, newFilePath));
@@ -753,9 +772,11 @@ public partial class MainViewModel : ObservableObject
             SelectedFile = reloaded;
 
             ShowStatusNotification($"Successfully updated '{reloaded.FileName}'!", InfoBarSeverity.Success);
+            Logger.Info($"[MainViewModel] Successfully updated metadata for '{reloaded.FileName}'.");
         }
         catch (Exception ex)
         {
+            Logger.Error($"[MainViewModel] Error saving metadata for '{SelectedFile.FilePath}'", ex);
             ShowStatusNotification($"Failed to update MP3: {ex.Message}", InfoBarSeverity.Error);
         }
         finally
