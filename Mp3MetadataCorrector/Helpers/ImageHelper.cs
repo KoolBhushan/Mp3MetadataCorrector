@@ -23,6 +23,7 @@ using System;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.Storage.Streams;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace Mp3MetadataCorrector.Helpers;
@@ -32,6 +33,33 @@ namespace Mp3MetadataCorrector.Helpers;
 /// </summary>
 public static class ImageHelper
 {
+    /// <summary>
+    /// Safely creates an <see cref="ImageSource"/> from an image URL string, returning null if empty or invalid.
+    /// Prevents XAML binding exceptions when null or invalid URLs are passed to an Image control.
+    /// </summary>
+    /// <param name="url">The image URL string.</param>
+    /// <returns>A <see cref="BitmapImage"/> if the URL is a valid absolute HTTP/HTTPS address; otherwise null.</returns>
+    public static ImageSource? SafeImageSource(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+
+        if (Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            try
+            {
+                return new BitmapImage(uri);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// Converts a byte array of image data into a WinUI <see cref="BitmapImage"/> asynchronously.
     /// </summary>

@@ -373,7 +373,10 @@
 
                                                 <!-- Artwork Thumbnail -->
                                                 <Border Grid.Column="0" Width="48" Height="48" CornerRadius="4" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
-                                                    <Image Source="{x:Bind ArtworkUrl}" Stretch="UniformToFill" />
+                                                    <Grid>
+                                                        <FontIcon Glyph="&#xE8D6;" FontSize="18" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        <Image Source="{x:Bind helpers:ImageHelper.SafeImageSource(ArtworkUrl)}" Stretch="UniformToFill" />
+                                                    </Grid>
                                                 </Border>
 
                                                 <!-- Track Info -->
