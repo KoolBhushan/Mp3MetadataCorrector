@@ -12,7 +12,7 @@
 
 <br />
 
-[Features](#-features) • [Workflow](#-workflow-architecture) • [Installation](#-installation) • [Getting Started](#-getting-started) • [Building from Source](#-building-from-source) • [Architecture](#-project-architecture)
+[Features](#-features) • [CLI & AI Agents](#-cli--ai-agents-mp3corrector) • [Workflow](#-workflow-architecture) • [Installation](#-installation) • [Getting Started](#-getting-started) • [Building from Source](#-building-from-source) • [Architecture](#-project-architecture)
 
 </div>
 
@@ -58,6 +58,84 @@
 * Designed with native WinUI 3 controls, responsive layouts, progress indicators, and system theme integration.
 * **Drag & Drop**: Drag `.mp3` files or entire folders straight into the application.
 * **Batch Support**: Load entire album folders and process files in queue.
+
+---
+
+## 🤖 CLI & AI Agents (`mp3corrector`)
+
+The software includes a first-class, standalone Command-Line Interface (`mp3corrector.exe`) engineered specifically for **AI agents**, automation scripts, terminal power users, and headless music servers.
+
+### 🌟 Key AI Agent Capabilities
+* **Dynamic Tool Schema Introspection (`mp3corrector schema`)**: Emits a standard JSON tool schema that AI agents (Gemini, Claude, GPT) can directly ingest for autonomous tool calling.
+* **Pure JSON Mode (`--json`)**: Guarantees deterministic, machine-readable JSON output on `stdout` without terminal formatting or ANSI codes.
+* **Reliable Exit Codes**: Returns `0` on success and `1` on failure with structured `{ "success": false, "error": "..." }` diagnostics.
+* **Lightweight & Cross-Platform Core**: Built on pure .NET 10 with zero WinUI or desktop UI runtime overhead.
+
+### 📋 CLI Command Reference
+
+| Command | Description | Example |
+| :--- | :--- | :--- |
+| `read` / `info` | Inspect ID3v1/ID3v2 tags, audio properties (bitrate, sample rate, duration), and cover art status. | `mp3corrector read "track.mp3" --json` |
+| `write` | Write or update metadata fields, embed artwork from file/URL, and optionally rename the file. | `mp3corrector write "track.mp3" --title "Hello" --artist "Adele" --rename --json` |
+| `search` | Query iTunes Search API and MusicBrainz for release credits and high-res art. | `mp3corrector search "Queen Bohemian Rhapsody" --limit 5 --json` |
+| `parse` | Clean noisy filenames (strip track numbers, quality stamps, brackets) into artist/title. | `mp3corrector parse "01 - Queen - Bohemian Rhapsody [320kbps].mp3" --json` |
+| `auto-fix` | End-to-end pipeline: parse filename, search online, select best match, fetch 1000×1000 artwork, write tags, and rename. | `mp3corrector auto-fix "messy_file.mp3" --rename --json` |
+| `download` | Download audio from YouTube/Web via `yt-dlp` to MP3, with optional immediate `auto-fix`. | `mp3corrector download "https://youtu.be/..." -o "D:\Music" --auto-fix --json` |
+| `schema` | Output the complete JSON tool schema for AI function calling and introspection. | `mp3corrector schema` |
+
+### 💡 Agent Automation Examples
+
+#### 1. Inspecting Audio Metadata
+```bash
+mp3corrector read "song.mp3" --json
+```
+```json
+{
+  "success": true,
+  "filePath": "C:\\Music\\song.mp3",
+  "metadata": {
+    "title": "Bohemian Rhapsody",
+    "artist": "Queen",
+    "album": "A Night at the Opera",
+    "year": 1975,
+    "genre": "Classic Rock",
+    "trackNumber": 4,
+    "hasCoverArt": true,
+    "coverArtMimeType": "image/jpeg",
+    "audioProperties": {
+      "bitrateKbps": 320,
+      "sampleRateHz": 44100,
+      "channels": 2,
+      "durationFormatted": "00:05:55"
+    }
+  }
+}
+```
+
+#### 2. Autonomous End-to-End Correction
+```bash
+mp3corrector auto-fix "01 - Queen - Bohemian Rhapsody (Official Video) [320kbps].mp3" --rename --json
+```
+```json
+{
+  "success": true,
+  "originalFile": "01 - Queen - Bohemian Rhapsody (Official Video) [320kbps].mp3",
+  "finalFile": "Queen - Bohemian Rhapsody.mp3",
+  "appliedMatch": {
+    "title": "Bohemian Rhapsody",
+    "artist": "Queen",
+    "album": "A Night at the Opera",
+    "year": 1975,
+    "source": "iTunes"
+  },
+  "coverArtDownloaded": true
+}
+```
+
+#### 3. YouTube Download with Direct Metadata Enrichment
+```bash
+mp3corrector download "https://www.youtube.com/watch?v=fJ9rUzIMcZQ" -o "D:\Music" --auto-fix --json
+```
 
 ---
 
@@ -139,6 +217,9 @@ cd Mp3MetadataCorrector
 # Build Debug
 dotnet build Mp3MetadataCorrector/Mp3MetadataCorrector.csproj
 
+# Build CLI tool (mp3corrector)
+dotnet build Mp3MetadataCorrector.Cli/Mp3MetadataCorrector.Cli.csproj -c Release
+
 # Run tests
 dotnet run --project Mp3MetadataCorrector.Tests/Mp3MetadataCorrector.Tests.csproj
 
@@ -185,6 +266,9 @@ Mp3MetadataCorrector/
 │   ├── ViewModels/
 │   │   └── MainViewModel.cs           # MVVM ViewModel with reactive properties & commands
 │   └── app.manifest                   # DPI awareness & Windows compatibility manifest
+├── Mp3MetadataCorrector.Cli/          # Standalone CLI Application (mp3corrector)
+│   ├── Program.cs                     # Command router, ANSI help & AI schema provider
+│   └── CliCommands.cs                 # JSON/standard handlers for all metadata tools
 ├── Mp3MetadataCorrector.Tests/        # Automated Verification Suite
 │   └── Program.cs                     # Tests filename parsing & round-trip ID3/APIC writing
 ├── installer/                         # Standalone Windows Setup Installer Project

@@ -71,6 +71,18 @@ jobs:
           $ver = $env:APP_VERSION
           dotnet publish Mp3MetadataCorrector/Mp3MetadataCorrector.csproj -c Release -r win-x64 --self-contained false -p:Version=$ver -p:AssemblyVersion=$ver -p:FileVersion=$ver -o publish
 
+      - name: Publish CLI Tool (mp3corrector)
+        shell: pwsh
+        run: |
+          $ver = $env:APP_VERSION
+          New-Item -ItemType Directory -Path "Output_Installer" -Force | Out-Null
+          New-Item -ItemType Directory -Path "Output_Cli" -Force | Out-Null
+          dotnet publish Mp3MetadataCorrector.Cli/Mp3MetadataCorrector.Cli.csproj -c Release -r win-x64 --self-contained false -p:Version=$ver -p:AssemblyVersion=$ver -p:FileVersion=$ver -o Output_Cli
+          Copy-Item "Output_Cli/mp3corrector.exe" "publish/mp3corrector.exe" -Force
+          Copy-Item "Output_Cli/mp3corrector.exe" "Output_Installer/mp3corrector_v$ver.exe" -Force
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          [System.IO.Compression.ZipFile]::CreateFromDirectory("Output_Cli", "Output_Installer/mp3corrector-cli-v$ver.zip")
+
       - name: Package App Payload Archive
         shell: pwsh
         run: |
@@ -120,6 +132,7 @@ jobs:
           generate_release_notes: true
           files: |
             Output_Installer/*.exe
+            Output_Installer/*.zip
             installer/app_payload.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
